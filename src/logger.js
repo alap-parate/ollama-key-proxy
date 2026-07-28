@@ -1,6 +1,13 @@
 import { randomUUID } from "node:crypto";
 
+const LOGGED_ROUTES = ["/health", "/metrics", "/dashboard", "/"];
+
 export function logger(req, res, next) {
+  // Skip logging for health, metrics, dashboard routes
+  if (LOGGED_ROUTES.includes(req.path)) {
+    return next();
+  }
+
   const id = randomUUID().slice(0, 8);
   const start = process.hrtime.bigint();
 
@@ -15,14 +22,25 @@ export function logger(req, res, next) {
 
   console.dir(req.headers, { depth: null, colors: true });
 
-  if (req.body && Object.keys(req.body).length > 0) {
+  if (req.body && req.body.length > 0) {
     console.log(`[${id}] Body:`);
 
-    console.dir(req.body, {
-      depth: null,
-      colors: true,
-      maxArrayLength: null,
-    });
+    let bodyStr;
+    try {
+      bodyStr = req.body.toString('utf8');
+      const parsed = JSON.parse(bodyStr);
+      console.dir(parsed, {
+        depth: null,
+        colors: true,
+        maxArrayLength: null,
+      });
+    } catch {
+      console.dir(bodyStr.slice(0, 500), {
+        depth: null,
+        colors: true,
+        maxArrayLength: null,
+      });
+    }
   }
 
   res.on("finish", () => {
