@@ -1,6 +1,5 @@
 import express from "express";
-import path from "path";
-import { fileURLToPath } from "url";
+import path from "node:path";
 import config from "./config.js";
 import km from "./key-manager.js";
 import { proxy } from "./proxy.js";
@@ -9,9 +8,9 @@ import { logger } from "./logger.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const app = express();
-app.use(express.raw({ type: "*/*", limit: "100mb" }));
 app.set("view engine", "ejs");
-app.set("views", path.join(__dirname, "../views"));
+app.set("views", path.join(process.cwd(), "views"));
+app.use(express.json({ limit: "100mb" }));
 
 app.use(logger);
 
@@ -67,10 +66,23 @@ app.get("/dashboard", (req, res) => {
   res.redirect("/");
 });
 
-app.all("/v1/{*path}", (req, res) =>
+app.get("/dashboard", (req, res) => {
+  res.render("dashboard", {
+    stats: km.stats(),
+    config: {
+      target: config.target,
+      cooldown: config.cooldown,
+    },
+  });
+});
+
+app.all("/v1/*s", (req, res) =>
   proxy(req, res).catch((e) => {
-    console.error(e);
-    res.status(500).json({ error: e.message });
+    if (e.message === "No keys available") {
+      return res.status(503).json({ error: "Service Unavailable: No API keys available" });
+    }
+    console.error(`[${req.id}] Proxy Error:`, e);
+    res.status(500).json({ error: "Internal Server Error", message: e.message });
   }),
 );
 
