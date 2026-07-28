@@ -1,6 +1,8 @@
-import { Readable } from "node:stream";
+import { Readable, pipeline } from "node:stream";
 import config from "./config.js";
 import km from "./key-manager.js";
+
+const MAX_RETRIES = 3;
 
 export async function proxy(req, res) {
   const controller = new AbortController();
@@ -15,10 +17,9 @@ export async function proxy(req, res) {
   for (let a = 0; a < km.keys.length; a++) {
     console.log(`[${req.id}] Forwarding to:`);
 
-    console.log(`${config.target}${req.originalUrl}`);
+    console.log(`[${req.id}] Attempt ${attempt + 1}: Using key #${k.id}`);
+    console.log(`[${req.id}] Forwarding to: ${config.target}${req.originalUrl}`);
 
-    const k = km.next();
-    console.log(`[${req.id}] Selected key #${k.key}`);
     const headers = { ...req.headers };
     delete headers.host;
     delete headers.authorization;
@@ -76,8 +77,8 @@ export async function proxy(req, res) {
       }
       console.error(`[${req.id}] Fetch error:`, e);
       k.failures++;
-      continue;
+      km.recordFailure();
+      lastError = err;
     }
   }
-  res.status(last ? last.status : 503).json({ error: "No available API key" });
 }

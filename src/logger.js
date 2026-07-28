@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import config from "./config.js";
 
+const LOGGED_ROUTES = ["/health", "/metrics", "/dashboard", "/"];
+
 export function logger(req, res, next) {
   const excludedPaths = ["/health", "/metrics", "/dashboard"];
   if (excludedPaths.includes(req.originalUrl)) {
